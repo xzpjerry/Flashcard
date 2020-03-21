@@ -1,37 +1,110 @@
 {% extends 'base.html' %}
 
 {% block title_block %}
-    <title>Cards Learning</title>
+    <title>Card Decks</title>
     {% if card %}
     <meta id="card-data" data-front="{{card.front}}" data-back="{{card.back}}">
     {% endif %}
 {% endblock %}
 
 {% block body_block %}
-    <h1>Cards Learning</h1>
-    <div name="upperBar">
-        <a class="btn btn-primary">Add a card</a>
-    </div>
-    <div id="cardContent" name="cardContent">
-        <h2 id="cardFront"></h2>
-        <h2 id="cardBack"></h2>
-    </div>
-    <div name="lowerBar">
-        <a class="btn btn-primary">Again</a>
-        <a class="btn btn-primary">Good</a>
-        <a class="btn btn-primary">Easy</a>
-    </div>
+    {% if current_user.is_authenticated %}
+        <p>You are currently logged in as {{ current_user.username }}</p>
+        <a class="btn btn-warning" href="/logout">Logout</a>
+        <div name="main_content">
+            <h1>Card Decks</h1>
+            <div name="upperBar">
+                <a class="btn btn-primary">Add a deck</a>
+            </div>
+            <table class="table text-center">
+                <thead>
+                    <th scope="col">#</th>
+                    <th scope="col">Deck</th>
+                </thead>
+                <tbody>
+                    {% for deck in decks %}
+                        <tr>
+                            <th scope="row">{{ deck[0] }}</th>
+                            <td data-learn_href="/learn/{{ deck[0] }}" data-rename_href="/deck/rename/{{ deck[0] }}" contenteditable="false" style="cursor:pointer;">{{ deck[1] }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% if decks|length == 0 %}
+                <a>You have not created any deck yet.</a>
+            {% endif %}
+        </div>
+    {% else %}
+        <a class="btn btn-primary" href="/login">Login</a> 
+        <a class="btn btn-secondary" href="/signup">Signup</a> 
+    {% endif %}
     <script>
-        var cardData;
-        $(document).ready(function() {
-            cardData = $('#card-data').data()
-            if(cardData){
-                $("#cardFront").text(cardData['front'])
-                $("#cardBack").text(cardData['back'])
-            } else {
-                $("#cardFront").text("All clear, for now.")
-                $("#cardBack").text("")
-            }
+        
+        $(document).ready(function () {
+
+            var edit_mode = false;
+
+            $(document.body).on('click', 'td[data-learn_href]', function () {
+                const this_href = this.dataset.learn_href
+                const this_ele = this
+                doubleclick(this_ele, function(){
+                    if(!edit_mode){
+                        window.location.href = this_href;
+                    }
+                }, function(){
+                    // console.log('Double clicked', this_ele)
+                    edit_mode = true
+                    $(this_ele).attr('contenteditable', true)
+                    $(this_ele).css('cursor', 'text')
+                    $(this_ele).trigger('focus')
+                })
+                
+            })
+
+            $(document.body).on('focus', '[contenteditable]', function() {
+                const $this = $(this);
+                $this.data('before', $this.html());
+            }).on('blur keyup paste input', '[contenteditable]', function(e) {
+                const $this = $(this);
+                if ($this.data('before') !== $this.html()) {
+                    $this.data('before', $this.html());
+                }
+                if (e.type == 'focusout') {
+                    // console.log("Confirm the change.")
+                    const rename_href = $this.data('rename_href') + '/' + $this.data('before')
+                    var update_request = $.ajax({
+                        url: rename_href,
+                        type: 'PUT',
+                    });
+                    update_request.done(function( msg ) {
+                        // do nothing
+                    });
+                    update_request.fail(function( jqXHR, textStatus ) {
+                        alert( "Request failed: " + jqXHR + '--' + textStatus );
+                    });
+                    edit_mode = false
+                    $(this).attr('contenteditable', false)
+                    $(this).css('cursor', 'pointer')
+                    
+                }
+            });
+
         })
+
+        function doubleclick(el, onsingle, ondouble) {
+            if (el.getAttribute("data-dblclick") == null) {
+                el.setAttribute("data-dblclick", 1);
+                setTimeout(function () {
+                    if (el.getAttribute("data-dblclick") == 1) {
+                        onsingle();
+                    }
+                    el.removeAttribute("data-dblclick");
+                }, 300);
+            } else {
+                el.removeAttribute("data-dblclick");
+                ondouble();
+            }
+        }
+
     </script>
 {% endblock %}

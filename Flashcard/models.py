@@ -1,7 +1,10 @@
-# from flask_login import UserMixin
-from Flashcard import db
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash,check_password_hash
+
 from enum import Enum
 import datetime
+
+from Flashcard import db
 
 class Difficulty(Enum):
     Easy = 1
@@ -15,9 +18,7 @@ class Card(db.Model):
     interval_seconds = db.Column(db.Float, default = 60)
     due_date = db.Column(db.DateTime, index = True, default=datetime.datetime.utcnow)
 
-    @classmethod
-    def get_next(cls):
-        return cls.query.filter(cls.due_date <= datetime.datetime.utcnow()).order_by(cls.due_date.asc()).first()
+    deck_id = db.Column(db.Integer, db.ForeignKey('deck.id'))
 
     def update_due(self, with_difficulty : Difficulty):
         if with_difficulty is Difficulty.Easy:
@@ -30,41 +31,35 @@ class Card(db.Model):
         self.due_date = self.due_date.replace(second=0, microsecond=0)
         db.session.commit()
 
-# class Deck(db.Model):
-#     id = db.Column(db.Integer, primary_key = True)
-#     secret = db.Column(db.SmallInteger)
-#     current_playing_video_ID = db.Column(db.String(24), default = 'QaQdY7iI75c')
-#     current_isplaying = db.Column(db.Boolean, default = False)
-#     current_seek = db.Column(db.Float, default=0.0)
-
-#     owner_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-#     owner = db.relationship('User', foreign_keys=owner_id, backref = db.backref('owned_room', lazy = True, uselist = False, cascade="all, delete"), uselist=False, cascade="all, delete")
+class Deck(db.Model):
+    id = db.Column(db.Integer, primary_key = True)
+    name = db.Column(db.String(32))
     
-#     timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow())
+    cards = db.relationship('Card', backref = db.backref('deck', lazy = True, uselist = False))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
 
-#     @classmethod
-#     def delete_expired(cls):
-#         expiration_days = 1
-#         limit = datetime.datetime.now() - datetime.timedelta(days=expiration_days)
-#         cls.query.filter(cls.timestamp <= limit).delete()
-#         db.session.commit()
+    def get_next(self):
+        return Card.query.filter(Card.deck_id == self.id and Card.due_date <= datetime.datetime.utcnow()).order_by(Card.due_date.asc()).first()
 
-#     def __repr__(self):
-#         return 'Resume ' + str(self.id)
+class User(UserMixin, db.Model):
+    '''
+    self.id : int
+    self.userName : str
+    self.credentials : str
+    self.resume : Resume
+    '''
+    id = db.Column(db.Integer, primary_key = True)
+    username = db.Column(db.String(32), unique = True)
+    password = db.Column(db.String(100), nullable = False)
 
-# class User(UserMixin, db.Model):
-#     '''
-#     self.id : int
-#     self.userName : str
-#     self.credentials : str
-#     self.resume : Resume
-#     '''
-#     id = db.Column(db.Integer, primary_key = True)
-#     session_id = db.Column(db.String(32), unique = True)
-#     username = db.Column(db.String(32), unique = True)
-#     room_id = db.Column(db.Integer, db.ForeignKey('room.id'), default=-1)
-#     room = db.relationship('Room', foreign_keys=room_id, backref = db.backref('users', lazy = True, cascade='all, delete'), post_update=True, uselist=False)
-#     timestamp = db.Column(db.DateTime, default=datetime.datetime.utcnow())
+    decks = db.relationship('Deck', backref = db.backref('user', lazy = True, uselist = False))
 
-#     def __repr__(self):
-#         return 'User ' + str(self.id) 
+    def __init__(self, **kwargs):
+        super(User, self).__init__(**kwargs)
+        self.password = generate_password_hash(kwargs['password'])
+
+    def verify_password(self, password):
+        return check_password_hash(self.password, password)
+    
+    def get_decks(self):
+        return decks

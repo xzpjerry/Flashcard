@@ -1,5 +1,6 @@
 from flask import Flask
-# from flask_login import LoginManager
+from flask_wtf import FlaskForm
+from flask_login import LoginManager
 from flask_sqlalchemy import SQLAlchemy
 
 #######################
@@ -7,7 +8,7 @@ from flask_sqlalchemy import SQLAlchemy
 #######################
 
 db = SQLAlchemy()
-# login_manager = LoginManager()
+login_manager = LoginManager()
 
 ######################################
 #### Application Factory Function ####
@@ -31,13 +32,13 @@ def initialize_extensions(app):
     db.init_app(app)
 
     # Flask-Login configuration
-    # login_manager.session_protection = 'strong'
-    # login_manager.login_view = 'cinema.index'
-    # login_manager.init_app(app=app)
-    # from Weyoutube.models import User
-    # @login_manager.user_loader
-    # def load_user(id):
-    #     return User.query.get(id)
+    login_manager.session_protection = 'strong'
+    login_manager.login_view = 'users.login'
+    login_manager.init_app(app=app)
+    from Flashcard.models import User
+    @login_manager.user_loader
+    def load_user(id):
+        return User.query.get(id)
 
     app.app_context().push()
 
@@ -45,4 +46,6 @@ def register_blueprints(app):
     # Since the application instance is now created, register each Blueprint
     # with the Flask application instance (app)
     from Flashcard.cards_learning import cards_learning_blueprint
+    from Flashcard.users import users_blueprint
     app.register_blueprint(cards_learning_blueprint)
+    app.register_blueprint(users_blueprint)
