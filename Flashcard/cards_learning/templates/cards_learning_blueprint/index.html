@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title_block %}
+    <title>Cards Learning</title>
+    {% if card %}
+    <meta id="card-data" data-front="{{card.front}}" data-back="{{card.back}}">
+    {% endif %}
+{% endblock %}
+
+{% block body_block %}
+    <h1>Cards Learning</h1>
+    <div name="upperBar">
+        <a class="btn btn-primary">Add a card</a>
+    </div>
+    <div id="cardContent" name="cardContent">
+        <h2 id="cardFront"></h2>
+        <h2 id="cardBack"></h2>
+    </div>
+    <div name="lowerBar">
+        <a class="btn btn-primary">Again</a>
+        <a class="btn btn-primary">Good</a>
+        <a class="btn btn-primary">Easy</a>
+    </div>
+    <script>
+        var cardData;
+        $(document).ready(function() {
+            cardData = $('#card-data').data()
+            if(cardData){
+                $("#cardFront").text(cardData['front'])
+                $("#cardBack").text(cardData['back'])
+            } else {
+                $("#cardFront").text("All clear, for now.")
+                $("#cardBack").text("")
+            }
+        })
+    </script>
+{% endblock %}
