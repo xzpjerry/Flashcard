@@ -12,27 +12,56 @@
         <p>You are currently logged in as {{ current_user.username }}</p>
         <a class="btn btn-warning" href="/logout">Logout</a>
         <div name="main_content">
-            <h1>Card Decks</h1>
+            <h1>Card Deck</h1>
+            <p>(Double-click to rename a deck)</p>
             <div name="upperBar">
-                <a class="btn btn-primary">Add a deck</a>
+                <!-- Button trigger modal -->
+                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#deckModal">
+                    Add a Deck
+                </button>
+                <!-- Modal -->
+                <div class="modal fade" id="deckModal" tabindex="-1" role="dialog" aria-labelledby="deckModalLabel" aria-hidden="true">
+                    <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                        <h5 class="modal-title" id="deckModalLabel">New Deck</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="addDeck" action="/deck/add">
+                                <div class="form-group">
+                                  <label for="deckName">Deck Name</label>
+                                  <input type="text" class="form-control" id="deckName" name="name" aria-describedby="deckHelp" placeholder="Enter a name for the deck">
+                                  <small id="deckHelp" class="form-text text-muted">So what do you want to call it?</small>
+                                </div>
+                                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+                                <button type="submit" class="btn btn-primary">Submit</button>
+                              </form>
+                        </div>
+                    </div>
+                    </div>
+                </div>
             </div>
-            <table class="table text-center">
-                <thead>
-                    <th scope="col">#</th>
-                    <th scope="col">Deck</th>
-                </thead>
-                <tbody>
-                    {% for deck in decks %}
-                        <tr>
-                            <th scope="row">{{ deck[0] }}</th>
-                            <td data-learn_href="/learn/{{ deck[0] }}" data-rename_href="/deck/rename/{{ deck[0] }}" contenteditable="false" style="cursor:pointer;">{{ deck[1] }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% if decks|length == 0 %}
-                <a>You have not created any deck yet.</a>
-            {% endif %}
+            <div class="table-responsive">
+                <table id="deckTable" class="table text-center table-striped table-hover">
+                    <thead>
+                        <th scope="col" style="width: 10%">#</th>
+                        <th scope="col" style="width: 80%">Deck Name</th>
+                        <th scope="col" style="width: 10%">Delete</th>
+                    </thead>
+                    <tbody>
+                        {% for deck in decks %}
+                            <tr>
+                                <th scope="row">{{ deck[0] }}</th>
+                                <td data-learn_href="/learn/{{ deck[0] }}" data-rename_href="/deck/rename/{{ deck[0] }}" contenteditable="false" style="cursor:pointer;">{{ deck[1] }}</td>
+                                <td><button data-delete_href="/deck/delete/{{ deck[0] }}" type="button" class="close" aria-label="Close"><span aria-hidden="true">&times;</span></button></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     {% else %}
         <a class="btn btn-primary" href="/login">Login</a> 
@@ -43,6 +72,46 @@
         $(document).ready(function () {
 
             var edit_mode = false;
+
+            $("#addDeck").submit(function(e){
+                e.preventDefault(); // avoid to execute the actual submit of the form.
+                var form = $(this);
+                const url = form.attr('action');
+                var add_request = $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: form.serialize(), // serializes the form's elements.
+                });
+                add_request.done(function( res ) {
+                    const id = res.deck_id
+                    const name = res.deck_name
+                    var new_row = '<th scope="row">' + id + '</th>'
+                    new_row += '<td data-learn_href="/learn/' + id + '" data-rename_href="/deck/rename/' + id + '" contenteditable="false" style="cursor:pointer;">' + name + '</td>'
+                    new_row += '<td><button data-delete_href="/deck/delete/' + id + '" type="button" class="close" aria-label="Close"><span aria-hidden="true">&times;</span></button></td>'
+                    new_row = "<tr>" + new_row + "</tr>"
+                    $("#deckTable").append(new_row)
+                    $("#deckModal .close").click()
+                });
+                add_request.fail(function( jqXHR, textStatus ) {
+                    alert( "Request failed: " + '--' + textStatus );
+                });
+            })
+
+            $(document.body).on('click', 'button[data-delete_href]', function () {
+                const this_href = this.dataset.delete_href
+                const this_ele = this
+                const row = $(this).closest('tr')
+                var delete_request = $.ajax({
+                    url: this_href,
+                    type: 'DELETE',
+                });
+                delete_request.done(function( msg ) {
+                    row.remove()
+                });
+                delete_request.fail(function( jqXHR, textStatus ) {
+                    alert( "Request failed: " + '--' + textStatus );
+                });
+            })
 
             $(document.body).on('click', 'td[data-learn_href]', function () {
                 const this_href = this.dataset.learn_href
@@ -64,14 +133,16 @@
             $(document.body).on('focus', '[contenteditable]', function() {
                 const $this = $(this);
                 $this.data('before', $this.html());
+                $this.data('text', $this.text());
             }).on('blur keyup paste input', '[contenteditable]', function(e) {
                 const $this = $(this);
                 if ($this.data('before') !== $this.html()) {
                     $this.data('before', $this.html());
+                    $this.data('text', $this.text());
                 }
                 if (e.type == 'focusout') {
-                    // console.log("Confirm the change.")
-                    const rename_href = $this.data('rename_href') + '/' + $this.data('before')
+                    // console.log("Confirm the change." + $this.data('text'))
+                    const rename_href = $this.data('rename_href') + '/' + $this.data('text')
                     var update_request = $.ajax({
                         url: rename_href,
                         type: 'PUT',
@@ -80,7 +151,8 @@
                         // do nothing
                     });
                     update_request.fail(function( jqXHR, textStatus ) {
-                        alert( "Request failed: " + jqXHR + '--' + textStatus );
+                        console.log(jqXHR)
+                        console.log( "Request failed: " + '--' + textStatus );
                     });
                     edit_mode = false
                     $(this).attr('contenteditable', false)

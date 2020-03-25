@@ -45,8 +45,11 @@ def add_deck():
         res['success'] = False
         res['errors'] = "You need a name for the deck!"
     else:
-        db.session.add(Deck(name=deck_name, user_id=current_user.id))
+        new_deck = Deck(name=deck_name, user_id=current_user.id)
+        db.session.add(new_deck)
         db.session.commit()
+        res['deck_id'] = new_deck.id
+        res['deck_name'] = deck_name
     return jsonify(res), code
 
 @cards_learning_blueprint.route('/deck/rename/<int:deck_id>/<string:new_name>', methods=('PUT',))
@@ -66,6 +69,26 @@ def rename_deck(deck_id, new_name):
             res['errors'] = "Invalid deck id."
         else:
             deck.name = new_name
+            db.session.commit()
+    return jsonify(res), code
+
+@cards_learning_blueprint.route('/deck/delete/<int:deck_id>', methods=('DELETE',))
+@login_required
+def delete_deck(deck_id):
+    code = 200
+    res = {'success': True}
+    if not deck_id:
+        code = 401
+        res['success'] = False
+        res['errors'] = "No deck id."
+    else:
+        deck = Deck.query.filter_by(id=deck_id, user_id=current_user.id).first()
+        if not deck:
+            code = 405
+            res['success'] = False
+            res['errors'] = "Invalid deck id."
+        else:
+            db.session.delete(deck)
             db.session.commit()
     return jsonify(res), code
 
